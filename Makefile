@@ -1,4 +1,4 @@
-
+.PHONY: build run test clean docker-up docker-down deps setup
 
 # Go parameters
 GOCMD=go
