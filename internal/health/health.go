@@ -201,11 +201,7 @@ func DatabaseHealthCheck(db interface{ Health(context.Context) error }) Check {
 }
 
 // RedisHealthCheck creates a health check for Redis connectivity
-func RedisHealthCheck(redis interface{ Health(context.Context) error }) Check {
-	return func(ctx context.Context) error {
-		return redis.Health(ctx)
-	}
-}
+func RedisHealthCheck(redis interface{ Health(context.Context) error }) Check
 
 // ServiceDiscoveryHealthCheck creates a health check for service discovery
 func ServiceDiscoveryHealthCheck(discovery interface{ Health() error }) Check {
