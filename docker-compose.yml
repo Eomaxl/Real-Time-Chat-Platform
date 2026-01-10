@@ -4,7 +4,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: chat-postgres
+    container_name: chat-postgres-v1
     environment:
       POSTGRES_DB: chatplatform
       POSTGRES_USER: postgres
@@ -23,7 +23,7 @@ services:
   # Redis for caching and pub/sub
   redis:
     image: redis:7-alpine
-    container_name: chat-redis
+    container_name: chat-redis-v1
     ports:
       - "6379:6379"
     volumes:
@@ -37,7 +37,7 @@ services:
   # Redis Cluster (for production-like setup)
   redis-cluster:
     image: redis:7-alpine
-    container_name: chat-redis-cluster
+    container_name: chat-redis-cluster-v1
     ports:
       - "7000-7005:7000-7005"
     command: redis-cli --cluster create 127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 127.0.0.1:7004 127.0.0.1:7005 --cluster-replicas 1 --cluster-yes
@@ -53,7 +53,7 @@ services:
 
   redis-node-1:
     image: redis:7-alpine
-    container_name: redis-node-1
+    container_name: redis-node-1-v1
     ports:
       - "7000:7000"
     command: redis-server --port 7000 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
@@ -62,7 +62,7 @@ services:
 
   redis-node-2:
     image: redis:7-alpine
-    container_name: redis-node-2
+    container_name: redis-node-2-v1
     ports:
       - "7001:7001"
     command: redis-server --port 7001 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
@@ -71,7 +71,7 @@ services:
 
   redis-node-3:
     image: redis:7-alpine
-    container_name: redis-node-3
+    container_name: redis-node-3-v1
     ports:
       - "7002:7002"
     command: redis-server --port 7002 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
@@ -80,7 +80,7 @@ services:
 
   redis-node-4:
     image: redis:7-alpine
-    container_name: redis-node-4
+    container_name: redis-node-4-v1
     ports:
       - "7003:7003"
     command: redis-server --port 7003 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
@@ -89,7 +89,7 @@ services:
 
   redis-node-5:
     image: redis:7-alpine
-    container_name: redis-node-5
+    container_name: redis-node-5-v1
     ports:
       - "7004:7004"
     command: redis-server --port 7004 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
@@ -98,7 +98,7 @@ services:
 
   redis-node-6:
     image: redis:7-alpine
-    container_name: redis-node-6
+    container_name: redis-node-6-v1
     ports:
       - "7005:7005"
     command: redis-server --port 7005 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
@@ -108,7 +108,7 @@ services:
   # Prometheus for metrics
   prometheus:
     image: prom/prometheus:latest
-    container_name: chat-prometheus
+    container_name: chat-prometheus-v1
     ports:
       - "9090:9090"
     volumes:
@@ -119,7 +119,7 @@ services:
   # Grafana for dashboards
   grafana:
     image: grafana/grafana:latest
-    container_name: chat-grafana
+    container_name: chat-grafana-v1
     ports:
       - "3000:3000"
     environment:
@@ -132,7 +132,7 @@ services:
   # Jaeger for distributed tracing
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: chat-jaeger
+    container_name: chat-jaeger-v1
     ports:
       - "16686:16686"
       - "14268:14268"
@@ -148,4 +148,4 @@ volumes:
 
 networks:
   default:
-    name: chat-platform-network
+    name: chat-platform-network-v1
