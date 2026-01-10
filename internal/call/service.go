@@ -5,9 +5,9 @@ import (
 	"real-time-chat-system/internal/config"
 	"real-time-chat-system/internal/database"
 	"real-time-chat-system/internal/health"
+	redisclient "real-time-chat-system/internal/redis"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 // Service represents the call service
@@ -15,11 +15,11 @@ type Service struct {
 	config        *config.CallConfig
 	healthChecker *health.Checker
 	db            *database.PostgresDB
-	redis         *redis.Client
+	redis         *redisclient.Client
 }
 
 // New create a new call service instance
-func New(cfg *config.CallConfig, healthChecker *health.Checker, db *database.PostgresDB, redisClient *redis.Client) (*Service, error) {
+func New(cfg *config.CallConfig, healthChecker *health.Checker, db *database.PostgresDB, redisClient *redisclient.Client) (*Service, error) {
 	service := &Service{
 		config:        cfg,
 		healthChecker: healthChecker,
@@ -29,7 +29,7 @@ func New(cfg *config.CallConfig, healthChecker *health.Checker, db *database.Pos
 
 	// Add health checks
 	healthChecker.AddCheck("database", health.DatabaseHealthCheck(db))
-	healthChecker.AddCheck("redis", health.RedisHealthCheck(health.NewRedisAdapter(redisClient)))
+	healthChecker.AddCheck("redis", health.RedisHealthCheck(redisClient))
 
 	return service, nil
 }

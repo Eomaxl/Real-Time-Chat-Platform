@@ -32,7 +32,7 @@ build-presence:
 	$(GOBUILD) -o $(PRESENCE_BINARY) ./cmd/presence-service
 
 build-call:
-	$(GOBUILD) -o $(CALL_BINARY) .cmd/call-service
+	$(GOBUILD) -o $(CALL_BINARY) ./cmd/call-service
 
 # Run services (for development)
 run-gateway:

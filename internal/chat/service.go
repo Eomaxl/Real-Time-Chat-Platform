@@ -8,11 +8,11 @@ import (
 	"real-time-chat-system/internal/config"
 	"real-time-chat-system/internal/database"
 	"real-time-chat-system/internal/health"
+	redisclient "real-time-chat-system/internal/redis"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 // ChatService interface defines the chat service operations
@@ -34,12 +34,12 @@ type Service struct {
 	config        *config.ChatConfig
 	healthChecker *health.Checker
 	db            *database.PostgresDB
-	redis         *redis.Client
+	redis         *redisclient.Client
 	repository    *Repository
 }
 
 // New creates a new Chat service instance
-func New(config *config.ChatConfig, healthChecker *health.Checker, db *database.PostgresDB, redisClient *redis.Client) (*Service, error) {
+func New(config *config.ChatConfig, healthChecker *health.Checker, db *database.PostgresDB, redisClient *redisclient.Client) (*Service, error) {
 	service := &Service{
 		config:        config,
 		healthChecker: healthChecker,
@@ -50,7 +50,7 @@ func New(config *config.ChatConfig, healthChecker *health.Checker, db *database.
 
 	// Add health check
 	healthChecker.AddCheck("database", health.DatabaseHealthCheck(db))
-	healthChecker.AddCheck("redis", health.RedisHealthCheck(health.NewRedisAdapter(redisClient)))
+	healthChecker.AddCheck("redis", health.RedisHealthCheck(redisClient))
 
 	return service, nil
 }

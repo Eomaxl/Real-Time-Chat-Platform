@@ -6,9 +6,9 @@ import (
 	"real-time-chat-system/internal/database"
 	"real-time-chat-system/internal/discovery"
 	"real-time-chat-system/internal/health"
+	redisclient "real-time-chat-system/internal/redis"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 // Gateway represents the API Gateway service
@@ -18,11 +18,11 @@ type Gateway struct {
 	healthChecker    *health.Checker
 	loadBalancer     *discovery.LoadBalancer
 	db               *database.PostgresDB
-	redis            *redis.Client
+	redis            *redisclient.Client
 }
 
-// New create a new API Gateway instance
-func New(cfg *config.GatewayConfig, serviceDiscovery discovery.Discovery, healthChecker *health.Checker, db *database.PostgresDB, redisClient *redis.Client) (*Gateway, error) {
+// New creates a new API Gateway instance
+func New(cfg *config.GatewayConfig, serviceDiscovery discovery.Discovery, healthChecker *health.Checker, db *database.PostgresDB, redisClient *redisclient.Client) (*Gateway, error) {
 	loadBalancer := discovery.NewLoadBalancer(serviceDiscovery)
 
 	gateway := &Gateway{
@@ -37,7 +37,7 @@ func New(cfg *config.GatewayConfig, serviceDiscovery discovery.Discovery, health
 	// Add health checks
 	healthChecker.AddCheck("service-discovery", health.ServiceDiscoveryHealthCheck(serviceDiscovery))
 	healthChecker.AddCheck("database", health.DatabaseHealthCheck(db))
-	healthChecker.AddCheck("redis", health.RedisHealthCheck(health.NewRedisAdapter(redisClient)))
+	healthChecker.AddCheck("redis", health.RedisHealthCheck(redisClient))
 
 	return gateway, nil
 }
@@ -56,10 +56,10 @@ func (g *Gateway) Router() http.Handler {
 	router.GET("/health/ready", gin.WrapF(g.healthChecker.ReadinessHandler()))
 	router.GET("/health/live", gin.WrapF(health.LivenessHandler()))
 
-	// Metrics endpoint for Promemtheus
+	// Metrics endpoint for Prometheus
 	router.GET("/metrics", g.metricsHandler)
 
-	// API Routes
+	// API routes
 	v1 := router.Group("/v1")
 	{
 		// Authentication middleware would be added here
@@ -69,7 +69,7 @@ func (g *Gateway) Router() http.Handler {
 		channels := v1.Group("/channels")
 		{
 			channels.POST("/:id/messages", g.proxyToService("chat-service"))
-			channels.GET("/:id/message", g.proxyToService("chat-service"))
+			channels.GET("/:id/messages", g.proxyToService("chat-service"))
 		}
 
 		// Call endpoints
@@ -79,27 +79,29 @@ func (g *Gateway) Router() http.Handler {
 			calls.POST("/:id/join", g.proxyToService("call-service"))
 		}
 
-		// Presence endpints
+		// Presence endpoints
 		presence := v1.Group("/presence")
 		{
 			presence.POST("/heartbeat", g.proxyToService("presence-service"))
 		}
 
-		// Websocket endpoint
+		// WebSocket endpoint
 		v1.GET("/ws", g.handleWebSocket)
 	}
+
 	return router
 }
 
 // authMiddleware provides JWT authentication
 func (g *Gateway) authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// For now, just pass through
 		// In a real implementation, this would validate JWT tokens
 		c.Next()
 	}
 }
 
-// proxyToService creates a handler that proxies request to a service
+// proxyToService creates a handler that proxies requests to a service
 func (g *Gateway) proxyToService(serviceName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		instance, err := g.loadBalancer.GetInstance(serviceName)
@@ -111,7 +113,8 @@ func (g *Gateway) proxyToService(serviceName string) gin.HandlerFunc {
 			return
 		}
 
-		// PLaceholder for now. Later on this would proxy the request
+		// For now, return a placeholder response
+		// In a real implementation, this would proxy the request
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "Request would be proxied to " + serviceName,
 			"instance": instance.Address + ":" + instance.Port,

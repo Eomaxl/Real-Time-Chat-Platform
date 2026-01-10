@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // Client represents a Redis Client with clustering support
 type Client struct {
-	client redis.UniversalClient
+	client goredis.UniversalClient
 	config *config.RedisConfig
 }
 
 // NewClient creates a new Redis Client
 func NewClient(cfg *config.RedisConfig) (*Client, error) {
-	var client redis.UniversalClient
+	var client goredis.UniversalClient
 
 	// Configure Redis Client options
 	opts := &redis.UniversalOptions{
@@ -47,7 +48,7 @@ func NewClient(cfg *config.RedisConfig) (*Client, error) {
 }
 
 // GetClient returns the underlying Redis Client
-func (c *Client) GetClient() redis.UniversalClient {
+func (c *Client) GetClient() goredis.UniversalClient {
 	return c.client
 }
 

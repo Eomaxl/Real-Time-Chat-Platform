@@ -1,4 +1,4 @@
-package main
+package callservice
 
 import (
 	"context"
@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"real-time-chat-system/internal/call"
 	"real-time-chat-system/internal/config"
 	"real-time-chat-system/internal/database"
 	"real-time-chat-system/internal/discovery"
-	"real-time-chat-system/internal/gateway"
 	"real-time-chat-system/internal/health"
 	"real-time-chat-system/internal/redis"
 	"syscall"
@@ -30,13 +30,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize database schema
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := db.InitSchema(ctx); err != nil {
-		log.Fatalf("Failed to initialize database schema: %v", err)
-	}
-
 	// Initialize Redis
 	redisClient, err := redis.NewClient(&cfg.Redis)
 	if err != nil {
@@ -54,18 +47,21 @@ func main() {
 	healthChecker := health.NewChecker()
 	healthChecker.SetVersion("1.0.0")
 
-	// Initialize API Gateway
-	gateway, err := gateway.New(&cfg.Gateway, serviceDiscovery, healthChecker, db, redisClient)
+	// Initialize Call Service
+	callService, err := call.New(&cfg.Call, healthChecker, db, redisClient)
 	if err != nil {
-		log.Fatalf("Failed to initialize API gateway: %v", err)
+		log.Fatalf("Failed to initialize call service: %v", err)
+	}
+
+	// Register service
+	if err := serviceDiscovery.Register("call-service", cfg.Call.Port); err != nil {
+		log.Fatalf("Failed to register service: %v", err)
 	}
 
 	// Start server
 	server := &http.Server{
-		Addr:         cfg.Gateway.Port,
-		Handler:      gateway.Router(),
-		ReadTimeout:  cfg.Gateway.GetReadTimeout(),
-		WriteTimeout: cfg.Gateway.GetWriteTimeout(),
+		Addr:    cfg.Call.Port,
+		Handler: callService.Router(),
 	}
 
 	// Graceful shutdown
@@ -75,7 +71,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("API Gateway started on %s", cfg.Gateway.Port)
+	log.Printf("Call Service started on %s", cfg.Call.Port)
 
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
@@ -84,12 +80,15 @@ func main() {
 
 	log.Println("Shutting down server...")
 
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
+
+	// Deregister service
+	serviceDiscovery.Deregister("call-service")
 
 	log.Println("Server exited")
 }
