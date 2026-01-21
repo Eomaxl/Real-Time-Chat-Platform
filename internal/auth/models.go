@@ -44,6 +44,11 @@ type TokenPair struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
+// RefreshTokenRequest represents a token refresh request
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
 // Claims represents JWT claims
 type Claims struct {
 	UserID   string `json:"user_id"`
