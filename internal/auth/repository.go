@@ -104,7 +104,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 }
 
 // UpdateUser updates an existing user
-func (r *Repository) UpdateUser(ctx context.Context, userID string, req *UpdatedUserRequest) (*User, error) {
+func (r *Repository) UpdateUser(ctx context.Context, userID string, req *UpdateUserRequest) (*User, error) {
 	// Build dynamic update query
 	setParts := []string{}
 	args := []interface{}{}

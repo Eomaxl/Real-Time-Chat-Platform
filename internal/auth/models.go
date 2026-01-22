@@ -24,8 +24,8 @@ type CreateUserRequest struct {
 	Password string `json:"password" binding:"required,min=8"`
 }
 
-// UpdatedUserRequest represents a request to udapte user
-type UpdatedUserRequest struct {
+// UpdateUserRequest represents a request to udapte user
+type UpdateUserRequest struct {
 	Username string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
 	Email    string `json:"email,omitempty" binding:"omitempty,email"`
 	Password string `json:"password,omitempty" binding:"omitempty,min=8"`

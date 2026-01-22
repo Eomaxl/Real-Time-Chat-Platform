@@ -74,7 +74,7 @@ func (s *Service) GetUser(ctx context.Context, userID string) (*User, error) {
 }
 
 // UpdateUser updates user information
-func (s *Service) UpdateUser(ctx context.Context, userID string, req *UpdatedUserRequest) (*User, error) {
+func (s *Service) UpdateUser(ctx context.Context, userID string, req *UpdateUserRequest) (*User, error) {
 	user, err := s.repo.UpdateUser(ctx, userID, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user : %w", err)

@@ -52,9 +52,8 @@ func (h *Handler) Register(c *gin.Context) {
 }
 
 // Login handles user login
-func (h *Handler) Login(c *gin.HandlerFunc) {
+func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "bad_request",
@@ -108,7 +107,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.h{
+	c.JSON(http.StatusOK, gin.H{
 		"tokens": tokens,
 	})
 }

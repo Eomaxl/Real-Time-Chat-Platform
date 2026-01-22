@@ -8,6 +8,8 @@ require (
 	github.com/redis/go-redis/v9 v9.17.2
 )
 
+replace github.com/gin-gonic/gin => ./third_party/gin
+
 require (
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
