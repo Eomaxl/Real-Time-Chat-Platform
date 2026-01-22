@@ -17,12 +17,12 @@ func NewHandler(service *Service) *Handler {
 }
 
 // Register handles user registration
-func (h *Handler) Register(c *gin.Context){
+func (h *Handler) Register(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest,gin.H{
-			"error" : "bad_request",
-			"message" : "Invalid request body",
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "bad_request",
+			"message": "Invalid request body",
 			"details": err.Error(),
 		})
 		return
@@ -39,26 +39,26 @@ func (h *Handler) Register(c *gin.Context){
 		}
 
 		c.JSON(status, gin.H{
-			"error" : "registration_failed",
-			"message" : message,
+			"error":   "registration_failed",
+			"message": message,
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"user": user,
+		"user":   user,
 		"tokens": tokens,
 	})
 }
 
 // Login handles user login
-func(h *Handler) Login(c *gin.HandlerFunc) {
+func (h *Handler) Login(c *gin.HandlerFunc) {
 	var req LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error":"bad_request",
-			"message":"Invalid request body",
+			"error":   "bad_request",
+			"message": "Invalid request body",
 			"details": err.Error(),
 		})
 		return
@@ -74,15 +74,15 @@ func(h *Handler) Login(c *gin.HandlerFunc) {
 		}
 
 		c.JSON(status, gin.H{
-			"error" : "authentication_failed",
-			"message" : message
+			"error":   "authentication_failed",
+			"message": message,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user": user,
-		"tokens" : tokens,
+		"user":   user,
+		"tokens": tokens,
 	})
 }
 
@@ -92,8 +92,8 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "bad_request",
-			"message":"Invalid request body",
+			"error":   "bad_request",
+			"message": "Invalid request body",
 			"details": err.Error(),
 		})
 		return
@@ -102,8 +102,8 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	tokens, err := h.service.RefreshToken(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "token_refresh_failed",
-			"message":"Invalid refresh token",
+			"error":   "token_refresh_failed",
+			"message": "Invalid refresh token",
 		})
 		return
 	}
@@ -118,13 +118,13 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	userID, exists := GetUserIDFromContext(c)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error" : "unauthorized",
-			"message" : "User not authenticated",
+			"error":   "unauthorized",
+			"message": "User not authenticated",
 		})
 		return
 	}
 
-	user, err :=  h.service.GetUser(c.Request.Context() ,userID)
+	user, err := h.service.GetUser(c.Request.Context(), userID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		message := "Failed to get profile"
@@ -135,14 +135,14 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		}
 
 		c.JSON(status, gin.H{
-			"error": "profile_fetch_failed",
-			"message" : message,
+			"error":   "profile_fetch_failed",
+			"message": message,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user" : user,
+		"user": user,
 	})
 }
 
