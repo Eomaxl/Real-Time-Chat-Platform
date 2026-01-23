@@ -328,6 +328,50 @@ func (r *Repository) GetChannel(ctx context.Context, channelID string) (*Channel
 	return &channel, nil
 }
 
+// GetUserChannels retrieves all channels for a user (cross-shard query)
+func (r *Repository) GetUserChannels(ctx context.Context, userID string) ([]Channel, error) {
+	var allChannels []Channel
+
+	// Query all shards for user's channels
+	for _, pool := range r.db.GetAllShards() {
+		query := `
+			SELECT c.id, c.name, c.type, c.created_at, c.updated_at
+			FROM channels c
+			INNER JOIN channel_members cm ON c.id = cm.channel_id
+			WHERE cm.user_id = $1
+		`
+		rows, err := pool.Query(ctx, query, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query user channels: %w", err)
+		}
+
+		for rows.Next() {
+			var channel Channel
+			err := rows.Scan(
+				&channel.ID,
+				&channel.Name,
+				&channel.Type,
+				&channel.CreatedBy,
+				&channel.CreatedAt,
+				&channel.UpdatedAt,
+			)
+
+			if err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("failed to scan channel: %w", err)
+			}
+			allChannels = append(allChannels, channel)
+		}
+		rows.Close()
+
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("error iterating channels: %w", err)
+		}
+	}
+
+	return allChannels, nil
+}
+
 // GetMessagesSince retrieves messages created after a specific timestamp
 func (r *Repository) GetMessagesSince(ctx context.Context, channelID, userID string, since time.Time, limit int) (*MessagePage, error) {
 	req := HistoryRequest{
@@ -417,4 +461,143 @@ func (r *Repository) decodeCursor(cursor string) (time.Time, error) {
 	}
 
 	return time.Unix(0, timestamp), nil
+}
+
+// BulkCreateMessages creates multiple messages in a single batch operation
+func (r *Repository) BulkCreateMessages(ctx context.Context, messages []SendMessageRequest) ([]Message, error) {
+	if len(messages) == 0 {
+		return nil, nil
+	}
+
+	// Group messages by shard
+	shardGroups := make(map[*pgxpool.Pool][]SendMessageRequest)
+	for _, msg := range messages {
+		pool := r.db.GetShardByChannelID(msg.ChannelID)
+		shardGroups[pool] = append(shardGroups[pool], msg)
+	}
+
+	// Process each shard group
+	var allMessages []Message
+	for pool, shardMessages := range shardGroups {
+		// Prepare rows for bulk insert
+		rows := make([][]interface{}, 0, len(shardMessages))
+		for _, msg := range shardMessages {
+			messageType := msg.MessageType
+			if messageType == "" {
+				messageType = "text"
+			}
+
+			var idempotencyKey *string
+			if msg.IdempotencyKey != "" {
+				idempotencyKey = &msg.IdempotencyKey
+			}
+
+			rows = append(rows, []interface{}{
+				msg.ChannelID,
+				msg.UserID,
+				msg.Content,
+				messageType,
+				idempotencyKey,
+			})
+		}
+
+		// Use transaction for bulk support
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		defer tx.Rollback(ctx)
+
+		// Insert messages and return IDs
+		query := `
+			INSERT INTO messages (channel_id, user_id, content, message_type, idempotency_key, created_at, updated_at)
+			VALUES ( $1, $2, $3, $4, $5, NOW(), NOW())
+			ON CONFLICT (idempotency_key) DO NOTHING
+			RETURNING id, channel_id, user_id, content, message_type, created_at, updated_at, idempotency_key
+		`
+
+		for _, msg := range shardMessages {
+			messageType := msg.MessageType
+			if messageType == "" {
+				messageType = "text"
+			}
+
+			var idempotencyKey *string
+			if msg.IdempotencyKey != "" {
+				idempotencyKey = &msg.IdempotencyKey
+			}
+
+			var message Message
+			err := tx.QueryRow(ctx, query, msg.ChannelID, msg.UserID, msg.Content, messageType, idempotencyKey).Scan(&message.ID, &message.ChannelID, &message.UserID, &message.Content, &message.MessageType, &message.CreatedAt, &message.UpdatedAt, &message.IdempotencyKey)
+
+			if err != nil {
+				// Skip conflicts (idempotency)
+				continue
+			}
+
+			allMessages = append(allMessages, message)
+		}
+
+		// Commit transaction
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("failed to commit bulk insert : %w", err)
+		}
+	}
+	return allMessages, nil
+}
+
+// BulkGetMessages retrieves multiple messages by their IDs
+func (r *Repository) BulkGetMessages(ctx context.Context, messageIDs []string, channelID string) ([]Message, error) {
+	if len(messageIDs) == 0 {
+		return nil, nil
+	}
+
+	pool := r.db.GetShardByChannelIDForRead(channelID)
+
+	// Build query with IN clause
+	placeholders := make([]string, len(messageIDs))
+	args := make([]interface{}, len(messageIDs)+1)
+	args[0] = channelID
+	for i, id := range messageIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args[i+1] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, channel_id, user_id, content, message_type, created_at, updated_at, idempotency_key
+		FROM messages
+		WHERE channel_id = $1 AND id IN (%s)
+		ORDER BY created_at DESC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bulk get messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []Message
+	for rows.Next() {
+		var message Message
+		err := rows.Scan(
+			&message.ID,
+			&message.ChannelID,
+			&message.UserID,
+			&message.Content,
+			&message.MessageType,
+			&message.CreatedAt,
+			&message.UpdatedAt,
+			&message.IdempotencyKey,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan message: %w", err)
+		}
+		messages = append(messages, message)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating messages: %w", err)
+	}
+
+	return messages, nil
 }
