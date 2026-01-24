@@ -50,15 +50,35 @@ type CallConfig struct {
 
 // DatabaseConfig holds PostgreSQL configuration
 type DatabaseConfig struct {
-	Host            string        `json:"host" yaml:"host"`
-	Port            string        `json:"port" yaml:"port"`
-	User            string        `json:"user" yaml:"user"`
-	Password        string        `json:"password" yaml:"password"`
-	Database        string        `json:"database" yaml:"database"`
-	MaxConnections  int           `json:"maxConnections" yaml:"maxConnections"`
-	MaxIdleConns    int           `json:"maxIdleConns" yaml:"maxIdleConns"`
-	ConnMaxLifetime time.Duration `json:"connMaxLifetime" yaml:"connMaxLifetime"`
-	SSLMode         string        `json:"sslMode" yaml:"sslMode"`
+	Host            string          `json:"host" yaml:"host"`
+	Port            string          `json:"port" yaml:"port"`
+	User            string          `json:"user" yaml:"user"`
+	Password        string          `json:"password" yaml:"password"`
+	Database        string          `json:"database" yaml:"database"`
+	MaxConnections  int             `json:"maxConnections" yaml:"maxConnections"`
+	MaxIdleConns    int             `json:"maxIdleConns" yaml:"maxIdleConns"`
+	ConnMaxLifetime time.Duration   `json:"connMaxLifetime" yaml:"connMaxLifetime"`
+	SSLMode         string          `json:"sslMode" yaml:"sslMode"`
+	Shards          []ShardConfig   `json:"shards" yaml:"shards"`
+	ReadReplicas    []ReplicaConfig `json:"readReplicas" yaml:"readReplicas"`
+}
+
+// ShardConfig holds configuration for a database shard
+type ShardConfig struct {
+	Name     string `json:"name" yaml:"name"`
+	Host     string `json:"host" yaml:"host"`
+	Port     string `json:"port" yaml:"port"`
+	Database string `json:"database" yaml:"database"`
+	Weight   int    `json:"weight" yaml:"weight"` // For weighted consistent hashing
+}
+
+// ReplicaConfig holds configuration for a read replica
+type ReplicaConfig struct {
+	Name     string `json:"name" yaml:"name"`
+	Host     string `json:"host" yaml:"host"`
+	Port     string `json:"port" yaml:"port"`
+	Database string `json:"database" yaml:"database"`
+	ShardID  int    `json:"shardId" yaml:"shardId"` // Which shard this replica belongs to
 }
 
 // RedisConfig holds Redis Configuration
@@ -379,6 +399,18 @@ func loadFromHelm() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// ShardURL returns the PostgreSQL connection string for a specific shard
+func (c *DatabaseConfig) ShardURL(shard ShardConfig) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.User, c.Password, shard.Host, shard.Port, shard.Database, c.SSLMode)
+}
+
+// ReplicaURL returns the PostgreSQL connection string for a specific replica
+func (c *DatabaseConfig) ReplicaURL(replica ReplicaConfig) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.User, c.Password, replica.Host, replica.Port, replica.Database, c.SSLMode)
 }
 
 // readK8sSecret reads a secret from a mounted file
