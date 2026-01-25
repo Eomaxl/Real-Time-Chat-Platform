@@ -1,0 +1,174 @@
+groups:
+  - name: sla_violations
+    interval: 30s
+    rules:
+      - alert: HighMessageLatency
+        expr: histogram_quantile(0.95, sum(rate(message_latency_seconds_bucket[5m])) by (service, le)) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          sla: message_latency
+        annotations:
+          summary: "High message latency detected"
+          description: "Message latency p95 is {{ $value }}s (threshold: 200ms) for service {{ $labels.service }}"
+
+      - alert: HighSignalingLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{endpoint=~".*signaling.*"}[5m])) by (service, le)) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+          sla: signaling_latency
+        annotations:
+          summary: "High signaling latency detected"
+          description: "Signaling latency p95 is {{ $value }}s (threshold: 150ms) for service {{ $labels.service }}"
+
+      - alert: SLAComplianceLow
+        expr: sla_compliance_percent < 95
+        for: 10m
+        labels:
+          severity: critical
+          sla: compliance
+        annotations:
+          summary: "SLA compliance below threshold"
+          description: "SLA compliance is {{ $value }}% (threshold: 95%) for {{ $labels.service }} - {{ $labels.sla_type }}"
+
+  - name: service_health
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"chat-service|presence-service|call-service|api-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} has been down for more than 2 minutes"
+
+      - alert: HighErrorRate
+        expr: sum(rate(errors_total[5m])) by (service) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors/sec for service {{ $labels.service }}"
+
+      - alert: HighPanicRate
+        expr: sum(rate(panics_total[5m])) by (service) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Panics detected"
+          description: "Panic rate is {{ $value }} panics/sec for service {{ $labels.service }}"
+
+  - name: resource_utilization
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 4
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}GB for {{ $labels.job }}"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connections_active / (db_connections_active + db_connections_idle) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Connection pool utilization is {{ $value | humanizePercentage }} for {{ $labels.service }}"
+
+      - alert: RedisConnectionErrors
+        expr: sum(rate(redis_errors_total[5m])) by (service) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis connection errors detected"
+          description: "Redis error rate is {{ $value }} errors/sec for service {{ $labels.service }}"
+
+  - name: business_metrics
+    interval: 30s
+    rules:
+      - alert: LowActiveUsers
+        expr: sum(online_users_total) < 100
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low active user count"
+          description: "Only {{ $value }} users are currently online"
+
+      - alert: HighRateLimitHits
+        expr: sum(rate(rate_limit_hits_total[5m])) by (service, limit_type) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate limit hits"
+          description: "Rate limit hits are {{ $value }}/sec for {{ $labels.service }} - {{ $labels.limit_type }}"
+
+      - alert: WebSocketConnectionsHigh
+        expr: sum(websocket_connections_total) > 45000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connections approaching limit"
+          description: "{{ $value }} WebSocket connections active (threshold: 50K per node)"
+
+      - alert: CallDurationAbnormal
+        expr: histogram_quantile(0.95, sum(rate(call_duration_seconds_bucket[5m])) by (le)) > 7200
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Abnormally long call durations"
+          description: "Call duration p95 is {{ $value }}s (2+ hours)"
+
+  - name: database_performance
+    interval: 30s
+    rules:
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (service, operation, le)) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Database query p95 latency is {{ $value }}s for {{ $labels.service }} - {{ $labels.operation }}"
+
+      - alert: HighDatabaseQueryRate
+        expr: sum(rate(db_queries_total[5m])) by (service) > 10000
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "High database query rate"
+          description: "Database query rate is {{ $value }} queries/sec for {{ $labels.service }}"
+
+  - name: authentication
+    interval: 30s
+    rules:
+      - alert: HighAuthFailureRate
+        expr: sum(rate(auth_failures_total[5m])) by (service) / sum(rate(auth_attempts_total[5m])) by (service) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Auth failure rate is {{ $value | humanizePercentage }} for {{ $labels.service }}"
+
+      - alert: SuspiciousAuthActivity
+        expr: sum(rate(auth_failures_total{reason="invalid_token"}[5m])) by (service) > 50
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Suspicious authentication activity"
+          description: "High rate of invalid token attempts: {{ $value }}/sec for {{ $labels.service }}"

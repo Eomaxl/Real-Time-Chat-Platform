@@ -1,0 +1,144 @@
+# Helm values.yaml example for chat platform
+global:
+  image:
+    registry: "your-registry.com"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+# Gateway configuration
+gateway:
+  replicaCount: 3
+  port: 8080
+  rateLimit: 5000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Chat service configuration
+chat:
+  replicaCount: 5
+  port: 8081
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# Presence service configuration
+presence:
+  replicaCount: 3
+  port: 8082
+  ttl: "30s"
+  batchSize: 100
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Call service configuration
+call:
+  replicaCount: 3
+  port: 8083
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# Database configuration
+database:
+  # Use external PostgreSQL cluster
+  external: true
+  host: "postgres-cluster.database.svc.cluster.local"
+  port: "5432"
+  name: "chatplatform"
+  # Secrets will be mounted from Kubernetes secrets
+  existingSecret: "chat-platform-db-secret"
+  userKey: "username"
+  passwordKey: "password"
+
+# Redis configuration
+redis:
+  # Use external Redis cluster
+  external: true
+  addresses:
+    - "redis-cluster-0.redis.svc.cluster.local:6379"
+    - "redis-cluster-1.redis.svc.cluster.local:6379"
+    - "redis-cluster-2.redis.svc.cluster.local:6379"
+  # Password from secret
+  existingSecret: "chat-platform-redis-secret"
+  passwordKey: "password"
+
+# Service discovery
+serviceDiscovery:
+  type: "consul"
+  address: "consul.consul.svc.cluster.local:8500"
+
+# Secrets configuration
+secrets:
+  # JWT secret for authentication
+  jwt:
+    existingSecret: "chat-platform-jwt-secret"
+    key: "jwt-secret"
+  
+  # Database credentials
+  database:
+    existingSecret: "chat-platform-db-secret"
+    usernameKey: "username"
+    passwordKey: "password"
+  
+  # Redis credentials
+  redis:
+    existingSecret: "chat-platform-redis-secret"
+    passwordKey: "password"
+
+# Vault integration (optional)
+vault:
+  enabled: false
+  address: "https://vault.vault.svc.cluster.local:8200"
+  secretPath: "secret/chat-platform"
+  k8sAuth:
+    enabled: true
+    role: "chat-platform"
+    serviceAccount: "chat-platform"
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: api.chat-platform.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: gateway
+  tls:
+    - secretName: chat-platform-tls
+      hosts:
+        - api.chat-platform.com

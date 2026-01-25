@@ -1,0 +1,46 @@
+{
+  "gateway": {
+    "port": ":8080",
+    "jwtSecret": "your-jwt-secret-here",
+    "rateLimit": 1000,
+    "readTimeout": "15s",
+    "writeTimeout": "15s"
+  },
+  "chat": {
+    "port": ":8081"
+  },
+  "presence": {
+    "port": ":8082",
+    "ttl": "30s",
+    "batchSize": 100
+  },
+  "call": {
+    "port": ":8083"
+  },
+  "database": {
+    "host": "postgres-service",
+    "port": "5432",
+    "user": "chatuser",
+    "password": "secure-password",
+    "database": "chatplatform",
+    "maxConnections": 100,
+    "maxIdleConns": 10,
+    "connMaxLifetime": "1h",
+    "sslMode": "require"
+  },
+  "redis": {
+    "addresses": ["redis-service:6379"],
+    "password": "redis-password",
+    "db": 0,
+    "poolSize": 100,
+    "minIdleConns": 10
+  },
+  "serviceDiscovery": {
+    "type": "consul",
+    "address": "consul-service:8500",
+    "interval": "10s"
+  },
+  "vault": {
+    "enabled": false
+  }
+}

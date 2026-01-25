@@ -1,0 +1,219 @@
+# Kubernetes deployment example for chat platform services
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-platform-gateway
+  namespace: chat-platform
+  labels:
+    app: chat-platform
+    component: gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: chat-platform
+      component: gateway
+  template:
+    metadata:
+      labels:
+        app: chat-platform
+        component: gateway
+    spec:
+      serviceAccountName: chat-platform
+      containers:
+      - name: gateway
+        image: your-registry.com/chat-platform/api-gateway:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        # Configuration source
+        - name: CONFIG_SOURCE
+          value: "kubernetes"
+        
+        # Non-sensitive config from ConfigMap
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: chat-platform-config
+              key: DATABASE_HOST
+        - name: DATABASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: chat-platform-config
+              key: DATABASE_PORT
+        - name: REDIS_ADDRESSES
+          valueFrom:
+            configMapKeyRef:
+              name: chat-platform-config
+              key: REDIS_ADDRESSES
+        
+        volumeMounts:
+        # Mount secrets as files
+        - name: database-secret
+          mountPath: /var/secrets/database
+          readOnly: true
+        - name: redis-secret
+          mountPath: /var/secrets/redis
+          readOnly: true
+        - name: jwt-secret
+          mountPath: /var/secrets/jwt
+          readOnly: true
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      
+      volumes:
+      # Secret volumes
+      - name: database-secret
+        secret:
+          secretName: chat-platform-db-secret
+      - name: redis-secret
+        secret:
+          secretName: chat-platform-redis-secret
+      - name: jwt-secret
+        secret:
+          secretName: chat-platform-jwt-secret
+
+---
+# Service for the gateway
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-platform-gateway
+  namespace: chat-platform
+  labels:
+    app: chat-platform
+    component: gateway
+spec:
+  selector:
+    app: chat-platform
+    component: gateway
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+# ServiceAccount for Vault authentication (if using Vault)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chat-platform
+  namespace: chat-platform
+  annotations:
+    # For Vault Kubernetes auth
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: "chat-platform"
+    vault.hashicorp.com/agent-inject-secret-database: "secret/chat-platform/database"
+    vault.hashicorp.com/agent-inject-secret-redis: "secret/chat-platform/redis"
+    vault.hashicorp.com/agent-inject-secret-jwt: "secret/chat-platform/jwt"
+
+---
+# Example deployment for chat service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-platform-chat
+  namespace: chat-platform
+  labels:
+    app: chat-platform
+    component: chat
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: chat-platform
+      component: chat
+  template:
+    metadata:
+      labels:
+        app: chat-platform
+        component: chat
+    spec:
+      serviceAccountName: chat-platform
+      containers:
+      - name: chat
+        image: your-registry.com/chat-platform/chat-service:latest
+        ports:
+        - containerPort: 8081
+          name: http
+        env:
+        - name: CONFIG_SOURCE
+          value: "kubernetes"
+        - name: CHAT_PORT
+          value: ":8081"
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: chat-platform-config
+              key: DATABASE_HOST
+        - name: DATABASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: chat-platform-config
+              key: DATABASE_PORT
+        - name: REDIS_ADDRESSES
+          valueFrom:
+            configMapKeyRef:
+              name: chat-platform-config
+              key: REDIS_ADDRESSES
+        
+        volumeMounts:
+        - name: database-secret
+          mountPath: /var/secrets/database
+          readOnly: true
+        - name: redis-secret
+          mountPath: /var/secrets/redis
+          readOnly: true
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      
+      volumes:
+      - name: database-secret
+        secret:
+          secretName: chat-platform-db-secret
+      - name: redis-secret
+        secret:
+          secretName: chat-platform-redis-secret
