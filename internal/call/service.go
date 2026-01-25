@@ -15,6 +15,7 @@ type Service struct {
 	config        *config.CallConfig
 	healthChecker *health.Checker
 	db            *database.PostgresDB
+	repo          *Repository
 	redis         *redisclient.Client
 }
 
@@ -24,6 +25,7 @@ func New(cfg *config.CallConfig, healthChecker *health.Checker, db *database.Pos
 		config:        cfg,
 		healthChecker: healthChecker,
 		db:            db,
+		repo:          NewRepository(db),
 		redis:         redisClient,
 	}
 
