@@ -79,6 +79,9 @@ func main() {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
+	// Stop presence service batch processor
+	presenceService.Stop()
+
 	// Deregister service
 	serviceDiscovery.Deregister("presence-service")
 

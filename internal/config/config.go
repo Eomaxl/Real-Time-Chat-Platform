@@ -16,35 +16,43 @@ type Config struct {
 	Chat             ChatConfig             `json:"chat" yaml:"chat"`
 	Presence         PresenceConfig         `json:"presence" yaml:"presence"`
 	Call             CallConfig             `json:"call" yaml:"call"`
+	SFU              SFUConfig              `json:"sfu" yaml:"sfu"`
 	Database         DatabaseConfig         `json:"database" yaml:"database"`
 	Redis            RedisConfig            `json:"redis" yaml:"redis"`
 	ServiceDiscovery ServiceDiscoveryConfig `json:"serviceDiscovery" yaml:"serviceDiscovery"`
 	Vault            VaultConfig            `json:"vault" yaml:"vault"`
+	MultiRegion      MultiRegionConfig      `json:"multiRegion" yaml:"multiRegion"`
+	Kafka            KafkaConfig            `json:"kafka" yaml:"kafka"`
 }
 
 // GatewayConfig holds API Gateway configuration
 type GatewayConfig struct {
-	Port         string        `json:"port" yaml:"port"`
-	JWTSecret    string        `json:"jwtSecret" yaml:"jwtSecret"`
-	RateLimit    int           `json:"rateLimit" yaml:"rateLimit"`
-	ReadTimeout  time.Duration `json:"readTimeout" yaml:"readTimeout"`
-	WriteTimeout time.Duration `json:"writeTimeout" yaml:"writeTimeout"`
+	Port         string `json:"port" yaml:"port"`
+	JWTSecret    string `json:"jwtSecret" yaml:"jwtSecret"`
+	RateLimit    int    `json:"rateLimit" yaml:"rateLimit"`
+	ReadTimeout  string `json:"readTimeout" yaml:"readTimeout"`
+	WriteTimeout string `json:"writeTimeout" yaml:"writeTimeout"`
 }
 
-// ChatConfig holds Chat service configuration
+// ChatConfig holds Chat Service configuration
 type ChatConfig struct {
 	Port string `json:"port" yaml:"port"`
 }
 
-// PresenceConfig holds Presence Service Configuration
+// PresenceConfig holds Presence Service configuration
 type PresenceConfig struct {
-	Port      string        `json:"port" yaml:"port"`
-	TTL       time.Duration `json:"ttl" yaml:"ttl"`
-	BatchSize int           `json:"batchSize" yaml:"batchSize"`
+	Port      string `json:"port" yaml:"port"`
+	TTL       string `json:"ttl" yaml:"ttl"`
+	BatchSize int    `json:"batchSize" yaml:"batchSize"`
 }
 
-// CallConfig holds call service configuration
+// CallConfig holds Call Service configuration
 type CallConfig struct {
+	Port string `json:"port" yaml:"port"`
+}
+
+// SFUConfig holds SFU Service configuration
+type SFUConfig struct {
 	Port string `json:"port" yaml:"port"`
 }
 
@@ -57,7 +65,7 @@ type DatabaseConfig struct {
 	Database        string          `json:"database" yaml:"database"`
 	MaxConnections  int             `json:"maxConnections" yaml:"maxConnections"`
 	MaxIdleConns    int             `json:"maxIdleConns" yaml:"maxIdleConns"`
-	ConnMaxLifetime time.Duration   `json:"connMaxLifetime" yaml:"connMaxLifetime"`
+	ConnMaxLifetime string          `json:"connMaxLifetime" yaml:"connMaxLifetime"`
 	SSLMode         string          `json:"sslMode" yaml:"sslMode"`
 	Shards          []ShardConfig   `json:"shards" yaml:"shards"`
 	ReadReplicas    []ReplicaConfig `json:"readReplicas" yaml:"readReplicas"`
@@ -81,7 +89,7 @@ type ReplicaConfig struct {
 	ShardID  int    `json:"shardId" yaml:"shardId"` // Which shard this replica belongs to
 }
 
-// RedisConfig holds Redis Configuration
+// RedisConfig holds Redis configuration
 type RedisConfig struct {
 	Addresses    []string `json:"addresses" yaml:"addresses"`
 	Password     string   `json:"password" yaml:"password"`
@@ -92,9 +100,9 @@ type RedisConfig struct {
 
 // ServiceDiscoveryConfig holds service discovery configuration
 type ServiceDiscoveryConfig struct {
-	Type     string        `json:"type" yaml:"type"`
-	Address  string        `json:"address" yaml:"address"`
-	Interval time.Duration `json:"interval" yaml:"interval"`
+	Type     string `json:"type" yaml:"type"` // "memory" for development, "consul" for production
+	Address  string `json:"address" yaml:"address"`
+	Interval string `json:"interval" yaml:"interval"`
 }
 
 // VaultConfig holds secret vault configuration
@@ -111,6 +119,41 @@ type K8sAuthConfig struct {
 	Enabled        bool   `json:"enabled" yaml:"enabled"`
 	Role           string `json:"role" yaml:"role"`
 	ServiceAccount string `json:"serviceAccount" yaml:"serviceAccount"`
+}
+
+// MultiRegionConfig holds multi-region configuration
+type MultiRegionConfig struct {
+	Enabled             bool           `json:"enabled" yaml:"enabled"`
+	CurrentRegion       string         `json:"currentRegion" yaml:"currentRegion"`
+	Regions             []RegionConfig `json:"regions" yaml:"regions"`
+	ReplicationMode     string         `json:"replicationMode" yaml:"replicationMode"` // "async", "sync", "semi-sync"
+	FailoverEnabled     bool           `json:"failoverEnabled" yaml:"failoverEnabled"`
+	FailoverTimeout     string         `json:"failoverTimeout" yaml:"failoverTimeout"`
+	HealthCheckInterval string         `json:"healthCheckInterval" yaml:"healthCheckInterval"`
+	ConflictResolution  string         `json:"conflictResolution" yaml:"conflictResolution"` // "last-write-wins", "vector-clock"
+}
+
+// RegionConfig holds configuration for a specific region
+type RegionConfig struct {
+	Name         string   `json:"name" yaml:"name"`
+	Code         string   `json:"code" yaml:"code"` // e.g., "us-east", "eu-west"
+	IsPrimary    bool     `json:"isPrimary" yaml:"isPrimary"`
+	DatabaseURLs []string `json:"databaseUrls" yaml:"databaseUrls"`
+	RedisURLs    []string `json:"redisUrls" yaml:"redisUrls"`
+	KafkaURLs    []string `json:"kafkaUrls" yaml:"kafkaUrls"`
+	Priority     int      `json:"priority" yaml:"priority"` // For failover ordering
+	HealthURL    string   `json:"healthUrl" yaml:"healthUrl"`
+}
+
+// KafkaConfig holds Apache Kafka configuration for cross-region event streaming
+type KafkaConfig struct {
+	Enabled       bool     `json:"enabled" yaml:"enabled"`
+	Brokers       []string `json:"brokers" yaml:"brokers"`
+	Topic         string   `json:"topic" yaml:"topic"`
+	ConsumerGroup string   `json:"consumerGroup" yaml:"consumerGroup"`
+	Compression   string   `json:"compression" yaml:"compression"` // "none", "gzip", "snappy", "lz4", "zstd"
+	BatchSize     int      `json:"batchSize" yaml:"batchSize"`
+	FlushInterval string   `json:"flushInterval" yaml:"flushInterval"`
 }
 
 // SecretProvider interface for different secret backends
@@ -135,7 +178,7 @@ type LoadOptions struct {
 	VaultConfig *VaultConfig
 }
 
-// Load loads configurations from environment variables with defaults
+// Load loads configuration from the specified source
 func Load() (*Config, error) {
 	// Determine configuration source from environment
 	source := getConfigSource()
@@ -176,6 +219,7 @@ func getConfigSource() ConfigSource {
 		return ConfigSource(source)
 	}
 
+	// Auto-detect based on environment
 	if os.Getenv("VAULT_ADDR") != "" {
 		return ConfigSourceVault
 	}
@@ -198,19 +242,22 @@ func loadDefaults() (*Config, error) {
 			Port:         ":8080",
 			JWTSecret:    "change-me-in-production",
 			RateLimit:    1000,
-			ReadTimeout:  15 * time.Second,
-			WriteTimeout: 15 * time.Second,
+			ReadTimeout:  "15s",
+			WriteTimeout: "15s",
 		},
 		Chat: ChatConfig{
 			Port: ":8081",
 		},
 		Presence: PresenceConfig{
 			Port:      ":8082",
-			TTL:       time.Duration(30) * time.Second,
+			TTL:       "30s",
 			BatchSize: 100,
 		},
 		Call: CallConfig{
 			Port: ":8083",
+		},
+		SFU: SFUConfig{
+			Port: ":8084",
 		},
 		Database: DatabaseConfig{
 			Host:            "localhost",
@@ -220,7 +267,7 @@ func loadDefaults() (*Config, error) {
 			Database:        "chatplatform",
 			MaxConnections:  100,
 			MaxIdleConns:    10,
-			ConnMaxLifetime: time.Duration(1) * time.Hour,
+			ConnMaxLifetime: "1h",
 			SSLMode:         "disable",
 		},
 		Redis: RedisConfig{
@@ -233,10 +280,27 @@ func loadDefaults() (*Config, error) {
 		ServiceDiscovery: ServiceDiscoveryConfig{
 			Type:     "memory",
 			Address:  "localhost:8500",
-			Interval: time.Duration(10) * time.Second,
+			Interval: "10s",
 		},
 		Vault: VaultConfig{
 			Enabled: false,
+		},
+		MultiRegion: MultiRegionConfig{
+			Enabled:             false,
+			CurrentRegion:       "us-east",
+			ReplicationMode:     "async",
+			FailoverEnabled:     false,
+			FailoverTimeout:     "30s",
+			HealthCheckInterval: "10s",
+			ConflictResolution:  "last-write-wins",
+		},
+		Kafka: KafkaConfig{
+			Enabled:       false,
+			Topic:         "chat-events",
+			ConsumerGroup: "chat-platform",
+			Compression:   "snappy",
+			BatchSize:     1000,
+			FlushInterval: "100ms",
 		},
 	}
 
@@ -273,10 +337,11 @@ func loadFromFileWithPath(configPath string) (*Config, error) {
 		// If JSON fails, try YAML (would need yaml package)
 		return nil, fmt.Errorf("failed to parse config file as JSON: %w", err)
 	}
+
 	return &cfg, nil
 }
 
-// loadFromVault loads configuration from HashiCorp vault
+// loadFromVault loads configuration from HashiCorp Vault
 func loadFromVault() (*Config, error) {
 	vaultConfig := &VaultConfig{
 		Enabled:    true,
@@ -284,6 +349,7 @@ func loadFromVault() (*Config, error) {
 		Token:      os.Getenv("VAULT_TOKEN"),
 		SecretPath: getEnvWithDefault("VAULT_SECRET_PATH", "secret/chat-platform"),
 	}
+
 	return loadFromVaultWithConfig(vaultConfig)
 }
 
@@ -294,12 +360,19 @@ func loadFromVaultWithConfig(vaultConfig *VaultConfig) (*Config, error) {
 	}
 
 	// This is a placeholder for Vault integration
-	// In a real implement, we would use the Vault API Client
+	// In a real implementation, you would use the Vault API client
 	// For now, return defaults with a note that Vault integration is needed
 	cfg, err := loadDefaults()
 	if err != nil {
 		return nil, err
 	}
+
+	// Override with Vault secrets if available
+	// TODO: Implement actual Vault client integration
+	// Example:
+	// client, err := vault.NewClient(&vault.Config{Address: vaultConfig.Address})
+	// secrets, err := client.Logical().Read(vaultConfig.SecretPath)
+	// Apply secrets to config...
 
 	return cfg, nil
 }
@@ -311,14 +384,13 @@ func loadFromKubernetes() (*Config, error) {
 		return nil, err
 	}
 
-	// Load from kubernetes secrets mounted as files
+	// Load from Kubernetes secrets mounted as files
 	secretsPath := "/var/secrets"
 
 	// Database secrets
 	if dbPassword := readK8sSecret(secretsPath + "/database/password"); dbPassword != "" {
 		cfg.Database.Password = dbPassword
 	}
-
 	if dbUser := readK8sSecret(secretsPath + "/database/username"); dbUser != "" {
 		cfg.Database.User = dbUser
 	}
@@ -328,7 +400,7 @@ func loadFromKubernetes() (*Config, error) {
 		cfg.Redis.Password = redisPassword
 	}
 
-	// JWT secrets
+	// JWT secret
 	if jwtSecret := readK8sSecret(secretsPath + "/jwt/secret"); jwtSecret != "" {
 		cfg.Gateway.JWTSecret = jwtSecret
 	}
@@ -337,19 +409,17 @@ func loadFromKubernetes() (*Config, error) {
 	if dbHost := os.Getenv("DATABASE_HOST"); dbHost != "" {
 		cfg.Database.Host = dbHost
 	}
-
 	if dbPort := os.Getenv("DATABASE_PORT"); dbPort != "" {
 		cfg.Database.Port = dbPort
 	}
-
-	if redisAddress := os.Getenv("REDIS_ADDRESSES"); redisAddress != "" {
-		cfg.Redis.Addresses = strings.Split(redisAddress, ",")
+	if redisAddresses := os.Getenv("REDIS_ADDRESSES"); redisAddresses != "" {
+		cfg.Redis.Addresses = strings.Split(redisAddresses, ",")
 	}
 
 	return cfg, nil
 }
 
-// loadFromHelm loads Configuration from Helm values
+// loadFromHelm loads configuration from Helm values
 func loadFromHelm() (*Config, error) {
 	cfg, err := loadDefaults()
 	if err != nil {
@@ -401,18 +471,6 @@ func loadFromHelm() (*Config, error) {
 	return cfg, nil
 }
 
-// ShardURL returns the PostgreSQL connection string for a specific shard
-func (c *DatabaseConfig) ShardURL(shard ShardConfig) string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		c.User, c.Password, shard.Host, shard.Port, shard.Database, c.SSLMode)
-}
-
-// ReplicaURL returns the PostgreSQL connection string for a specific replica
-func (c *DatabaseConfig) ReplicaURL(replica ReplicaConfig) string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		c.User, c.Password, replica.Host, replica.Port, replica.Database, c.SSLMode)
-}
-
 // readK8sSecret reads a secret from a mounted file
 func readK8sSecret(path string) string {
 	data, err := ioutil.ReadFile(path)
@@ -436,42 +494,54 @@ func (c *DatabaseConfig) DatabaseURL() string {
 		c.User, c.Password, c.Host, c.Port, c.Database, c.SSLMode)
 }
 
+// ShardURL returns the PostgreSQL connection string for a specific shard
+func (c *DatabaseConfig) ShardURL(shard ShardConfig) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.User, c.Password, shard.Host, shard.Port, shard.Database, c.SSLMode)
+}
+
+// ReplicaURL returns the PostgreSQL connection string for a specific replica
+func (c *DatabaseConfig) ReplicaURL(replica ReplicaConfig) string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.User, c.Password, replica.Host, replica.Port, replica.Database, c.SSLMode)
+}
+
 // GetReadTimeout returns the parsed read timeout duration
 func (c *GatewayConfig) GetReadTimeout() time.Duration {
-	if c.ReadTimeout > 0 {
-		return c.ReadTimeout
+	if duration, err := time.ParseDuration(c.ReadTimeout); err == nil {
+		return duration
 	}
 	return 15 * time.Second // default
 }
 
 // GetWriteTimeout returns the parsed write timeout duration
 func (c *GatewayConfig) GetWriteTimeout() time.Duration {
-	if c.WriteTimeout > 0 {
-		return c.WriteTimeout
+	if duration, err := time.ParseDuration(c.WriteTimeout); err == nil {
+		return duration
 	}
 	return 15 * time.Second // default
 }
 
 // GetTTL returns the parsed TTL duration
 func (c *PresenceConfig) GetTTL() time.Duration {
-	if c.TTL > 0 {
-		return c.TTL
+	if duration, err := time.ParseDuration(c.TTL); err == nil {
+		return duration
 	}
 	return 30 * time.Second // default
 }
 
 // GetConnMaxLifetime returns the parsed connection max lifetime duration
 func (c *DatabaseConfig) GetConnMaxLifetime() time.Duration {
-	if c.ConnMaxLifetime > 0 {
-		return c.ConnMaxLifetime
+	if duration, err := time.ParseDuration(c.ConnMaxLifetime); err == nil {
+		return duration
 	}
 	return time.Hour // default
 }
 
 // GetInterval returns the parsed interval duration
 func (c *ServiceDiscoveryConfig) GetInterval() time.Duration {
-	if c.Interval > 0 {
-		return c.Interval
+	if duration, err := time.ParseDuration(c.Interval); err == nil {
+		return duration
 	}
 	return 10 * time.Second // default
 }
@@ -491,4 +561,28 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// GetFailoverTimeout returns the parsed failover timeout duration
+func (c *MultiRegionConfig) GetFailoverTimeout() time.Duration {
+	if duration, err := time.ParseDuration(c.FailoverTimeout); err == nil {
+		return duration
+	}
+	return 30 * time.Second // default
+}
+
+// GetHealthCheckInterval returns the parsed health check interval duration
+func (c *MultiRegionConfig) GetHealthCheckInterval() time.Duration {
+	if duration, err := time.ParseDuration(c.HealthCheckInterval); err == nil {
+		return duration
+	}
+	return 10 * time.Second // default
+}
+
+// GetFlushInterval returns the parsed flush interval duration
+func (c *KafkaConfig) GetFlushInterval() time.Duration {
+	if duration, err := time.ParseDuration(c.FlushInterval); err == nil {
+		return duration
+	}
+	return 100 * time.Millisecond // default
 }

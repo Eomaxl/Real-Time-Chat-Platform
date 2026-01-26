@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// Initialize database
-	db, err := database.NewPostgreDB(&cfg.Database)
+	db, err := database.NewPostgresDB(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

@@ -18,7 +18,7 @@ func TestMessageIdempotencyProperty(t *testing.T) {
 
 	db, err := database.NewPostgresDB(&cfg.Database)
 	if err != nil {
-		t.Skip("Skipping property test - database not available: %v", err)
+		t.Skipf("Skipping property test - database not available: %v", err)
 		return
 	}
 	defer db.Close()

@@ -11,7 +11,7 @@ import (
 	"real-time-chat-system/internal/database"
 	"real-time-chat-system/internal/discovery"
 	"real-time-chat-system/internal/health"
-	"real-time-chat-system/internal/redis"
+	redisclient "real-time-chat-system/internal/redis"
 	"syscall"
 	"time"
 )
@@ -24,14 +24,14 @@ func main() {
 	}
 
 	// Initialize database
-	db, err := database.NewPostgreDB(&cfg.Database)
+	db, err := database.NewPostgresDB(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
 	// Initialize Redis
-	redisClient, err := redis.NewClient(&cfg.Redis)
+	redisClient, err := redisclient.NewClient(&cfg.Redis)
 	if err != nil {
 		log.Fatalf("Failed to initialize Redis: %v", err)
 	}
