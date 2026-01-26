@@ -148,3 +148,144 @@ This mirrors Stream’s core domains: chat API + edge-friendly real-time infrast
 - Call lifecycle
 - WebSocket subscriptions
 - Public API design & versioning are first-class concerns.
+
+## Production-Grade Architecture Enhancements
+
+### Envelope Calculations and Capacity Planning
+
+**Target Scale**: 200M Monthly Active Users, 110M Daily Active Users
+
+**Connection Capacity per Node**:
+- Target: 50,000 concurrent WebSocket connections per node (optimized Go implementation)
+- Memory per connection: ~4KB (optimized connection state + buffers)
+- Total WebSocket memory: 200MB per node
+- CPU overhead: ~0.05% per 100 connections under normal load
+- Network bandwidth: ~500Mbps per node for 50K active users
+
+**Global Infrastructure Requirements**:
+- **WebSocket Nodes**: 2,200 nodes globally (110M DAU / 50K per node)
+- **Application Servers**: 1,000+ nodes across all regions
+- **Database Clusters**: 50+ PostgreSQL clusters with read replicas
+- **Redis Clusters**: 100+ Redis clusters for caching and pub/sub
+- **CDN**: Global CDN with 200+ edge locations
+
+**Database Capacity Planning**:
+- Messages table growth: ~500TB per month (assuming 50 messages per DAU)
+- Total storage: ~6PB annually with compression and archiving
+- Read/write ratio: 90/10 (heavy read workload at this scale)
+- Connection pools: 100-200 connections per service cluster
+- Query performance targets: <5ms p95 for message retrieval with proper indexing
+
+**Redis Memory Requirements**:
+- Presence data: ~200 bytes per online user (~22GB for 110M users)
+- Rate limiting: ~100 bytes per user per minute (~11GB active)
+- Pub/sub buffering: ~10GB per region for message distribution
+- Session data: ~1KB per active session (~110GB total)
+- Total Redis memory: ~500GB globally across all clusters
+
+**Network Envelope**:
+- Average message size: 500 bytes (including metadata)
+- Peak message rate: 2M messages/second globally during peak hours
+- WebSocket overhead: ~15% additional bandwidth (optimized)
+- Total bandwidth: ~10Gbps globally during peak load
+- CDN bandwidth: ~100Gbps for media content and API responses
+
+**Infrastructure Sizing (Global)**:
+- **Compute**: 10,000+ CPU cores across all services
+- **Memory**: 50TB+ RAM across all nodes
+- **Storage**: 10PB+ with replication and backups
+- **Network**: 100Gbps+ aggregate bandwidth
+- **Estimated monthly cost**: $2-5M on major cloud providers
+
+**Regional Distribution** (5 major regions):
+- **US-East**: 40% of traffic (44M DAU)
+- **EU-West**: 25% of traffic (27.5M DAU)  
+- **Asia-Pacific**: 20% of traffic (22M DAU)
+- **US-West**: 10% of traffic (11M DAU)
+- **Other regions**: 5% of traffic (5.5M DAU)
+
+### Additional Non-Functional Requirements
+
+**Availability and Reliability**:
+- 99.99% uptime SLA (52.6 minutes downtime per year)
+- Zero-downtime deployments with canary releases across regions
+- Automatic failover within 10 seconds using health checks
+- Multi-region active-active with automatic traffic shifting
+- Data replication with RPO < 10 seconds, RTO < 30 seconds
+
+**Security Enhancements**:
+- End-to-end encryption for all messages using Signal Protocol
+- API rate limiting: 10,000 requests/minute per user with burst allowance
+- Advanced DDoS protection with traffic analysis and ML-based detection
+- Comprehensive audit logging for all operations with 2-year retention
+- SOC2 Type II, GDPR, CCPA compliance with automated data governance
+- Zero-trust security model with service mesh encryption
+
+**Monitoring and Observability**:
+- 100% distributed tracing with 1% sampling for performance analysis
+- Real-time alerting with <30 second detection time
+- Comprehensive dashboards for business and technical metrics
+- Automated incident response with runbook automation
+- Capacity planning with ML-based forecasting
+- Security monitoring with SIEM integration
+
+**Data Consistency and Durability**:
+- ACID transactions with distributed consensus (Raft/Paxos)
+- Event sourcing for complete audit trails and replay capability
+- Cross-region data synchronization with conflict resolution
+- Backup retention: 7 years with point-in-time recovery
+- Data archiving with automated lifecycle management
+- Disaster recovery with <1 hour RTO globally
+
+**Performance Optimizations for Hyperscale**:
+
+**Memory Management**:
+- **Object Pooling**: Reuse message objects, connection structs
+- **Zero-Copy Operations**: Minimize memory allocations in hot paths
+- **Memory-Mapped Files**: For large data structures and caching
+- **Garbage Collection Tuning**: Optimized GC settings for low latency
+
+**Network Optimizations**:
+- **Connection Multiplexing**: HTTP/2 and gRPC for internal communication
+- **Message Compression**: Protocol buffer compression for internal messages
+- **TCP Optimization**: Custom TCP settings for WebSocket connections
+- **Load Balancing**: Consistent hashing with bounded loads
+
+**Database Optimizations**:
+- **Query Optimization**: Prepared statements, query plan caching
+- **Index Strategy**: Covering indexes, partial indexes for large tables
+- **Partitioning**: Time-based and hash-based table partitioning
+- **Connection Pooling**: PgBouncer with transaction-level pooling
+
+**Caching Strategy**:
+- **Multi-Level Caching**: L1 (in-memory), L2 (Redis), L3 (CDN)
+- **Cache Warming**: Proactive cache population for hot data
+- **Cache Invalidation**: Event-driven cache invalidation with versioning
+- **Bloom Filters**: Reduce cache misses for non-existent data
+
+**Monitoring and Observability at Scale**:
+- **Distributed Tracing**: Jaeger with 0.1% sampling rate
+- **Metrics Collection**: Prometheus with custom metrics for business logic
+- **Log Aggregation**: ELK stack with structured logging
+- **Real-time Dashboards**: Grafana with alerting on SLA violations
+- **Capacity Planning**: ML-based forecasting for resource allocation
+
+### Performance Optimization Strategies
+
+**Caching Layers**:
+- **L1 Cache**: In-memory LRU cache per service instance
+- **L2 Cache**: Redis cluster for shared caching
+- **CDN**: Static assets and API responses with appropriate TTL
+- **Database Query Cache**: Prepared statements and query result caching
+
+**Message Processing Optimization**:
+- **Message Batching**: Process multiple messages in single database transaction
+- **Async Processing**: Non-critical operations handled asynchronously
+- **Content Compression**: Gzip compression for large message payloads
+- **Message Deduplication**: Bloom filters for duplicate detection
+
+**WebSocket Optimization**:
+- **Connection Pooling**: Reuse connections for multiple subscriptions
+- **Message Compression**: Per-message deflate for bandwidth optimization
+- **Heartbeat Optimization**: Adaptive heartbeat intervals based on activity
+- **Event Filtering**: Client-side filtering to reduce unnecessary traffic
